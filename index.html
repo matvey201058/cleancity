@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EcoMarker - Школьный проект</title>
+    <link rel="stylesheet" href="styles.css">
+    <!-- Яндекс Карты (ЗАМЕНИТЕ КЛЮЧ!) -->
+    <script src="https://api-maps.yandex.ru/2.1/?apikey=ВАШ_КЛЮЧ_ЯНДЕКС_КАРТ&lang=ru_RU"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🌿 EcoMarker</h1>
+            <p class="subtitle">Школьный проект по мониторингу экологических проблем</p>
+            <div class="user-panel">
+                <span id="user-status">Гость</span>
+                <input type="text" id="user-name" placeholder="Ваше имя">
+                <button onclick="login()">Войти</button>
+                <button onclick="logout()">Выйти</button>
+            </div>
+        </header>
+
+        <main>
+            <div id="map"></div>
+            
+            <div class="controls">
+                <button onclick="addMarkerAtCenter()" class="btn-primary">
+                    📍 Добавить проблему здесь
+                </button>
+                <button onclick="useMyLocation()" class="btn-secondary">
+                    📍 Использовать мое местоположение
+                </button>
+                <button onclick="exportData()" class="btn-success">
+                    💾 Экспорт данных
+                </button>
+                <button onclick="importData()" class="btn-warning">
+                    📂 Импорт данных
+                </button>
+            </div>
+
+            <div class="instructions">
+                <h3>Как пользоваться:</h3>
+                <ol>
+                    <li>Введите ваше имя и нажмите "Войти"</li>
+                    <li>Найдите на карте место с экологической проблемой</li>
+                    <li>Нажмите кнопку "Добавить проблему здесь"</li>
+                    <li>Опишите проблему и нажмите "Сохранить"</li>
+                    <li>Кликните на маркер, чтобы увидеть детали или отметить как очищено</li>
+                </ol>
+                <p><strong>Внимание:</strong> Данные сохраняются в вашем браузере и на Яндекс Диске</p>
+            </div>
+        </main>
+
+        <div id="modal" class="modal">
+            <div class="modal-content">
+                <h2 id="modal-title">Добавить экологическую проблему</h2>
+                <div id="modal-body">
+                    <textarea id="problem-description" placeholder="Опишите проблему (например: Свалка мусора, Разлив нефти, Вырубка деревьев и т.д.)" rows="4"></textarea>
+                    <div class="form-group">
+                        <label>Тип проблемы:</label>
+                        <select id="problem-type">
+                            <option value="trash">🗑️ Мусор</option>
+                            <option value="water">💧 Загрязнение воды</option>
+                            <option value="air">🌫️ Загрязнение воздуха</option>
+                            <option value="tree">🌳 Вырубка деревьев</option>
+                            <option value="other">❓ Другое</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Фото (опционально):</label>
+                        <input type="file" id="photo" accept="image/*" capture="environment">
+                    </div>
+                    <div class="form-group">
+                        <label>Срочность:</label>
+                        <select id="urgency">
+                            <option value="low">Низкая</option>
+                            <option value="medium" selected>Средняя</option>
+                            <option value="high">Высокая</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-buttons">
+                    <button onclick="saveMarker()" class="btn-primary">💾 Сохранить</button>
+                    <button onclick="closeModal()" class="btn-secondary">❌ Отмена</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="details-modal" class="modal">
+            <div class="modal-content">
+                <h2 id="details-title">Детали проблемы</h2>
+                <div id="details-body"></div>
+                <div class="modal-buttons">
+                    <button onclick="markAsCleaned()" class="btn-success">✅ Отметить как решено</button>
+                    <button onclick="closeDetails()" class="btn-secondary">Закрыть</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="yandex-disk.js"></script>
+    <script src="scripts.js"></script>
+</body>
+</html>
