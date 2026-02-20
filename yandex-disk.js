@@ -4,7 +4,7 @@ const YANDEX_DISK_CONFIG = {
     // 1. Зарегистрируйте приложение
     // 2. Получите OAuth токен
     // 3. Вставьте сюда
-    ACCESS_TOKEN: '1bc62081f1244c628671fcbcfbe0cae2',
+    ACCESS_TOKEN: 'y0__xCQgbD5Bhj6pj0gsu24vxbPU98PhGUW3kPyGTmMDuLwMPcPag',
     
     // Папка в Яндекс Диске для хранения данных
     APP_FOLDER: 'EcoMarker_Data',

@@ -3,40 +3,90 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EcoMarker - Школьный проект</title>
+    <title>Чистый город - Экологический проект</title>
     <link rel="stylesheet" href="styles.css">
     <!-- Яндекс Карты (ЗАМЕНИТЕ КЛЮЧ!) -->
-    <script src="https://api-maps.yandex.ru/2.1/?apikey=ВАШ_КЛЮЧ_ЯНДЕКС_КАРТ&lang=ru_RU"></script>
+    <script src="https://api-maps.yandex.ru/2.1/?apikey=e4f10ae4-447d-48f8-a986-c71edb1890da&lang=ru_RU"></script>
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>🌿 EcoMarker</h1>
+            <div class="header-top">
+                <h1>🌿 Чистый город</h1>
+                <div class="points-display" id="points-display">
+                    <span class="points-icon">⭐</span>
+                    <span id="user-points">0</span> баллов
+                </div>
+            </div>
             <p class="subtitle">Школьный проект по мониторингу экологических проблем</p>
+            
             <div class="user-panel">
                 <span id="user-status">Гость</span>
                 <input type="text" id="user-name" placeholder="Ваше имя">
-                <button onclick="login()">Войти</button>
-                <button onclick="logout()">Выйти</button>
+                <button onclick="login()" class="btn-primary">Войти</button>
+                <button onclick="logout()" class="btn-secondary">Выйти</button>
             </div>
         </header>
 
+        <!-- Навигационные вкладки -->
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('map')">🗺️ Карта</button>
+            <button class="tab-btn" onclick="switchTab('events')">📅 Мероприятия</button>
+            <button class="tab-btn" onclick="switchTab('ecoguide')">📚 Эко-гид</button>
+            <button class="tab-btn" onclick="switchTab('rating')">🏆 Рейтинг</button>
+        </div>
+
         <main>
-            <div id="map"></div>
-            
-            <div class="controls">
-                <button onclick="addMarkerAtCenter()" class="btn-primary">
-                    📍 Добавить проблему здесь
-                </button>
-                <button onclick="useMyLocation()" class="btn-secondary">
-                    📍 Использовать мое местоположение
-                </button>
-                <button onclick="exportData()" class="btn-success">
-                    💾 Экспорт данных
-                </button>
-                <button onclick="importData()" class="btn-warning">
-                    📂 Импорт данных
-                </button>
+            <!-- Вкладка с картой -->
+            <div id="tab-map" class="tab-content active">
+                <div id="map"></div>
+                
+                <div class="controls">
+                    <button onclick="addMarkerAtCenter()" class="btn-primary">
+                        📍 Добавить проблему здесь
+                    </button>
+                    <button onclick="useMyLocation()" class="btn-secondary">
+                        📍 Использовать мое местоположение
+                    </button>
+                    <button onclick="exportData()" class="btn-success">
+                        💾 Экспорт данных
+                    </button>
+                    <button onclick="importData()" class="btn-warning">
+                        📂 Импорт данных
+                    </button>
+                </div>
+            </div>
+
+            <!-- Вкладка с мероприятиями -->
+            <div id="tab-events" class="tab-content">
+                <div class="events-header">
+                    <h2>🌍 Экологические мероприятия</h2>
+                    <button onclick="showAddEventModal()" class="btn-primary">➕ Добавить мероприятие</button>
+                </div>
+                <div id="events-list" class="events-list">
+                    <!-- Сюда будут добавляться мероприятия через JS -->
+                </div>
+            </div>
+
+            <!-- Вкладка с Эко-гидом -->
+            <div id="tab-ecoguide" class="tab-content">
+                <h2>📚 Эко-гид: полезные знания</h2>
+                <div class="eco-guide-grid" id="eco-guide">
+                    <!-- Карточки статей -->
+                </div>
+            </div>
+
+            <!-- Вкладка с рейтингом -->
+            <div id="tab-rating" class="tab-content">
+                <h2>🏆 Рейтинг эко-активистов</h2>
+                <div class="rating-filters">
+                    <button class="filter-btn active" onclick="filterRating('all')">Все время</button>
+                    <button class="filter-btn" onclick="filterRating('month')">За месяц</button>
+                    <button class="filter-btn" onclick="filterRating('week')">За неделю</button>
+                </div>
+                <div id="rating-table" class="rating-table">
+                    <!-- Таблица рейтинга -->
+                </div>
             </div>
 
             <div class="instructions">
@@ -45,13 +95,15 @@
                     <li>Введите ваше имя и нажмите "Войти"</li>
                     <li>Найдите на карте место с экологической проблемой</li>
                     <li>Нажмите кнопку "Добавить проблему здесь"</li>
-                    <li>Опишите проблему и нажмите "Сохранить"</li>
-                    <li>Кликните на маркер, чтобы увидеть детали или отметить как очищено</li>
+                    <li>Опишите проблему и нажмите "Сохранить" (+10 баллов)</li>
+                    <li>Когда проблема решена, отметьте это (+20 баллов)</li>
+                    <li>Участвуйте в мероприятиях и получайте бонусы!</li>
                 </ol>
                 <p><strong>Внимание:</strong> Данные сохраняются в вашем браузере и на Яндекс Диске</p>
             </div>
         </main>
 
+        <!-- Модальное окно добавления проблемы -->
         <div id="modal" class="modal">
             <div class="modal-content">
                 <h2 id="modal-title">Добавить экологическую проблему</h2>
@@ -74,26 +126,58 @@
                     <div class="form-group">
                         <label>Срочность:</label>
                         <select id="urgency">
-                            <option value="low">Низкая</option>
-                            <option value="medium" selected>Средняя</option>
-                            <option value="high">Высокая</option>
+                            <option value="low">Низкая (+5 баллов)</option>
+                            <option value="medium" selected>Средняя (+10 баллов)</option>
+                            <option value="high">Высокая (+15 баллов)</option>
                         </select>
                     </div>
                 </div>
                 <div class="modal-buttons">
-                    <button onclick="saveMarker()" class="btn-primary">💾 Сохранить</button>
+                    <button onclick="saveMarker()" class="btn-primary">💾 Сохранить (+10 баллов)</button>
                     <button onclick="closeModal()" class="btn-secondary">❌ Отмена</button>
                 </div>
             </div>
         </div>
 
+        <!-- Модальное окно деталей проблемы -->
         <div id="details-modal" class="modal">
             <div class="modal-content">
                 <h2 id="details-title">Детали проблемы</h2>
                 <div id="details-body"></div>
                 <div class="modal-buttons">
-                    <button onclick="markAsCleaned()" class="btn-success">✅ Отметить как решено</button>
+                    <button onclick="markAsCleaned()" class="btn-success">✅ Отметить как решено (+20 баллов)</button>
                     <button onclick="closeDetails()" class="btn-secondary">Закрыть</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Модальное окно добавления мероприятия -->
+        <div id="event-modal" class="modal">
+            <div class="modal-content">
+                <h2>Добавить мероприятие</h2>
+                <div class="form-group">
+                    <label>Название:</label>
+                    <input type="text" id="event-title" placeholder="Субботник в парке">
+                </div>
+                <div class="form-group">
+                    <label>Описание:</label>
+                    <textarea id="event-description" rows="3" placeholder="Приглашаем всех на уборку территории..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Дата и время:</label>
+                    <input type="datetime-local" id="event-date">
+                </div>
+                <div class="form-group">
+                    <label>Место проведения:</label>
+                    <input type="text" id="event-location" placeholder="Парк Победы">
+                </div>
+                <div class="form-group">
+                    <label>Баллы за участие:</label>
+                    <input type="number" id="event-points" value="50" min="10" max="200">
+                </div>
+                <div class="modal-buttons">
+                    <button onclick="saveEvent()" class="btn-primary">Сохранить</button>
+                    <button onclick="closeEventModal()" class="btn-secondary">Отмена</button>
                 </div>
             </div>
         </div>
