@@ -235,15 +235,20 @@ function initMap() {
         lang: 'ru'
     });
 
-    // Клик по карте — работает только в режиме выбора точки (pick mode)
+    // Добавляем обработчик клика с правильной проверкой
+    // Клик по карте — только в ручном pick mode
     map.on('click', function(e) {
         if (!window._pickMode) return;
+        window._pickMode = false;
+        document.getElementById('map').style.cursor = '';
+
         const [lng, lat] = e.lngLat;
         tempMarkerCoords = { lat, lng };
         addTempMarker(lat, lng);
-        exitPickMode();
-        openAddProblemModal();
-    });
+
+        // Возвращаем форму с обновлёнными координатами
+        openAddProblemModal(false);
+    });;
     
     // Добавляем обработчик ошибок карты
     map.on('error', function(e) {
@@ -331,46 +336,51 @@ function clearTempMarker() {
     }
 }
 
-// ── PICK MODE — режим выбора точки на карте ───────────────
-function enterPickMode() {
-    window._pickMode = true;
-    tempMarkerCoords = null;
+// ── ДОБАВЛЕНИЕ МЕТКИ ПО ГЕОЛОКАЦИИ ─────────────────────────
+function addMarkerByGeolocation() {
     clearTempMarker();
+    tempMarkerCoords = null;
 
-    let hint = document.getElementById('pick-hint');
-    if (!hint) {
-        hint = document.createElement('div');
-        hint.id = 'pick-hint';
-        hint.innerHTML = `
-            <div class="pick-hint-inner">
-                <div class="pick-hint-icon">📍</div>
-                <div class="pick-hint-text">Нажмите на карту,<br>чтобы выбрать место проблемы</div>
-                <button class="pick-hint-cancel" id="pick-cancel-btn">Отмена</button>
-            </div>`;
-        document.getElementById('map-container').appendChild(hint);
-        document.getElementById('pick-cancel-btn').addEventListener('click', () => {
-            exitPickMode();
-        });
+    if (!navigator.geolocation) {
+        // Геолокация не поддерживается — открываем форму без координат и предлагаем ввести вручную
+        openAddProblemModal(true);
+        return;
     }
-    hint.classList.remove('pick-hint-hidden');
-    hint.classList.add('pick-hint-visible');
 
-    const mapEl = document.getElementById('map');
-    if (mapEl) mapEl.style.cursor = 'crosshair';
+    // Показываем индикатор загрузки на кнопке
+    const btn = document.getElementById('add-marker-btn');
+    const origHTML = btn.innerHTML;
+    btn.innerHTML = '<span class="geo-spinner"></span><span class="fab-label">Определяю место...</span>';
+    btn.disabled = true;
+
+    navigator.geolocation.getCurrentPosition(
+        (pos) => {
+            btn.innerHTML = origHTML;
+            btn.disabled = false;
+
+            const lat = pos.coords.latitude;
+            const lng = pos.coords.longitude;
+            tempMarkerCoords = { lat, lng };
+
+            // Центрируем карту на пользователе и ставим временный маркер
+            if (map) map.setCenter([lng, lat], { duration: 600, zoom: 16 });
+            addTempMarker(lat, lng);
+            openAddProblemModal(false);
+        },
+        (err) => {
+            btn.innerHTML = origHTML;
+            btn.disabled = false;
+
+            // Геолокация отклонена или недоступна — открываем форму, предлагаем выбрать вручную
+            showToast('📍 Геолокация недоступна — выберите место на карте вручную');
+            openAddProblemModal(true);
+        },
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+    );
 }
 
-function exitPickMode() {
-    window._pickMode = false;
-    const hint = document.getElementById('pick-hint');
-    if (hint) {
-        hint.classList.remove('pick-hint-visible');
-        hint.classList.add('pick-hint-hidden');
-    }
-    const mapEl = document.getElementById('map');
-    if (mapEl) mapEl.style.cursor = '';
-}
-
-function openAddProblemModal() {
+function openAddProblemModal(manualMode = false) {
+    // Сбрасываем форму
     document.getElementById('problem-desc').value = '';
     document.getElementById('photo-preview').classList.add('hidden');
     document.getElementById('photo-label-text').textContent = '📷 Выбрать фото';
@@ -383,14 +393,28 @@ function openAddProblemModal() {
     selectedProblemType = 'trash';
     selectedUrgency = 'medium';
 
+    // Показываем координаты или инструкцию
     const coordsEl = document.getElementById('modal-coords');
-    if (tempMarkerCoords) {
-        coordsEl.textContent = `📍 ${tempMarkerCoords.lat.toFixed(5)}, ${tempMarkerCoords.lng.toFixed(5)}`;
-        coordsEl.style.color = 'var(--green)';
-        coordsEl.style.fontWeight = '600';
+    if (tempMarkerCoords && !manualMode) {
+        coordsEl.innerHTML = `<span style="color:var(--green);font-weight:600">✅ Место определено: ${tempMarkerCoords.lat.toFixed(5)}, ${tempMarkerCoords.lng.toFixed(5)}</span>`;
+    } else {
+        // В ручном режиме — показываем кнопку "выбрать на карте"
+        coordsEl.innerHTML = `
+            <span id="manual-coords-status" style="color:var(--text-muted)">📍 Место не определено</span>
+            <button class="btn-pick-manual" id="pick-manual-btn" onclick="startManualPick()">🗺️ Выбрать на карте</button>
+        `;
     }
 
     document.getElementById('modal-problem').classList.remove('hidden');
+}
+
+// Ручной выбор точки: закрываем форму, активируем клик по карте
+window._pickMode = false;
+function startManualPick() {
+    document.getElementById('modal-problem').classList.add('hidden');
+    window._pickMode = true;
+    showToast('📍 Нажмите на карту, чтобы выбрать место');
+    if (map) document.getElementById('map').style.cursor = 'crosshair';
 }
 
 function removeMapMarker(id) {
@@ -789,10 +813,10 @@ function setupUI() {
         });
     });
 
-    // Add marker button — запускает режим выбора точки на карте
+        // Add marker button — получает геолокацию и сразу открывает форму
     document.getElementById('add-marker-btn').addEventListener('click', () => {
         if (!currentUser) { showToast('⚠️ Сначала войдите в систему'); return; }
-        enterPickMode();
+        addMarkerByGeolocation();
     });
 
 
@@ -916,10 +940,11 @@ function closeSidebar() {
 // ══════════════════════════════════════════════════════════
 function closeModal(id) {
     document.getElementById(id)?.classList.add('hidden');
+    
+    // Если закрываем модальное окно проблемы, очищаем временный маркер
     if (id === 'modal-problem') {
         clearTempMarker();
         tempMarkerCoords = null;
-        exitPickMode();
     }
 }
 
@@ -953,3 +978,4 @@ window.panToMarker = panToMarker;
 window.joinEvent = joinEvent;
 window.showArticle = showArticle;
 window.switchTab = switchTab;
+window.startManualPick = startManualPick;

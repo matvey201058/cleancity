@@ -988,80 +988,47 @@ html, body { height: 100%; font-family: 'Manrope', sans-serif; background: var(-
 }
 .sidebar-overlay.active { display: block; }
 
-/* ══ PICK MODE HINT ══════════════════════════════════════ */
-#pick-hint {
-    position: absolute;
-    inset: 0;
-    z-index: 20;
-    display: flex;
+/* ══ GEOLOCATION SPINNER on FAB ════════════════════════════ */
+.geo-spinner {
+    width: 18px; height: 18px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: inline-block;
+    flex-shrink: 0;
+}
+
+/* ══ MANUAL PICK BUTTON (inside modal-coords) ══════════════ */
+.btn-pick-manual {
+    display: inline-flex;
     align-items: center;
-    justify-content: center;
-    pointer-events: none;
-    transition: opacity 0.2s, transform 0.2s;
-}
-
-#pick-hint.pick-hint-hidden {
-    opacity: 0;
-    pointer-events: none;
-}
-
-#pick-hint.pick-hint-visible {
-    opacity: 1;
-    pointer-events: auto;
-}
-
-.pick-hint-inner {
-    background: var(--green-dark);
-    color: var(--white);
-    border-radius: var(--radius-lg);
-    padding: 28px 36px;
-    text-align: center;
-    box-shadow: 0 8px 40px rgba(0,0,0,0.35);
-    border: 2px solid rgba(116,198,157,0.3);
-    animation: pickHintIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    pointer-events: auto;
-    max-width: 320px;
-}
-
-@keyframes pickHintIn {
-    from { opacity: 0; transform: scale(0.9) translateY(-10px); }
-    to   { opacity: 1; transform: scale(1) translateY(0); }
-}
-
-.pick-hint-icon {
-    font-size: 3rem;
-    margin-bottom: 12px;
-    animation: bounce 1.4s ease-in-out infinite;
-}
-
-@keyframes bounce {
-    0%, 100% { transform: translateY(0); }
-    50%       { transform: translateY(-8px); }
-}
-
-.pick-hint-text {
-    font-family: 'Manrope', sans-serif;
-    font-size: 1rem;
-    font-weight: 600;
-    line-height: 1.5;
-    margin-bottom: 20px;
-    color: rgba(255,255,255,0.9);
-}
-
-.pick-hint-cancel {
-    background: rgba(255,255,255,0.1);
-    border: 1px solid rgba(255,255,255,0.2);
-    color: rgba(255,255,255,0.6);
+    gap: 6px;
+    margin-top: 8px;
+    padding: 8px 16px;
+    background: var(--green-pale);
+    color: var(--green-dark);
+    border: 1.5px solid var(--green-light);
     border-radius: var(--radius-sm);
-    padding: 8px 20px;
     font-family: 'Manrope', sans-serif;
-    font-size: 0.85rem;
+    font-size: 0.83rem;
+    font-weight: 600;
     cursor: pointer;
     transition: all 0.2s;
+    width: 100%;
+    justify-content: center;
+}
+.btn-pick-manual:hover {
+    background: var(--green-light);
+    color: var(--white);
 }
 
-.pick-hint-cancel:hover {
-    background: rgba(231,76,60,0.2);
-    border-color: rgba(231,76,60,0.4);
-    color: #ff8a80;
+/* ══ modal-coords box ═══════════════════════════════════════ */
+.modal-coords {
+    background: var(--bg);
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+    margin-bottom: 20px;
+    font-size: 0.82rem;
+    line-height: 1.5;
 }
