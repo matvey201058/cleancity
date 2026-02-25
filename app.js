@@ -225,22 +225,89 @@ async function ensureUserDoc(user) {
 }
 
 // ══════════════════════════════════════════════════════════
-// 2GIS MAP
+// 2GIS MAP (ИСПРАВЛЕННАЯ ВЕРСИЯ)
 // ══════════════════════════════════════════════════════════
 function initMap() {
     map = new mapgl.Map('map', {
         center: [47.8864, 56.6344], // Йошкар-Ола
         zoom: 13,
-        key: '94eeaf1e-53b8-429d-9cc2-a6c4fd844057', // Demo key — замените на свой
+        key: '94eeaf1e-53b8-429d-9cc2-a6c4fd844057',
         lang: 'ru'
     });
 
-    map.on('click', e => {
-        if (document.getElementById('modal-problem').classList.contains('hidden')) return;
+    // Добавляем обработчик клика с правильной проверкой
+    map.on('click', function(e) {
+        // Проверяем, открыто ли модальное окно добавления проблемы
+        const modalProblem = document.getElementById('modal-problem');
+        if (!modalProblem || modalProblem.classList.contains('hidden')) {
+            return; // Если модальное окно закрыто, игнорируем клик
+        }
+        
+        // Получаем координаты клика
         const [lng, lat] = e.lngLat;
+        
+        // Сохраняем координаты
         tempMarkerCoords = { lat, lng };
-        document.getElementById('modal-coords').textContent =
-            `📍 ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+        
+        // Показываем координаты в модальном окне
+        const coordsElement = document.getElementById('modal-coords');
+        if (coordsElement) {
+            coordsElement.textContent = `📍 ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+            coordsElement.style.color = 'var(--green)';
+            coordsElement.style.fontWeight = '600';
+        }
+        
+        // Показываем уведомление
+        showToast('✅ Координаты выбраны! Теперь заполните описание');
+        
+        // Добавляем временный маркер для визуализации
+        addTempMarker(lat, lng);
+    });
+    
+    // Добавляем обработчик ошибок карты
+    map.on('error', function(e) {
+        console.error('Ошибка карты:', e);
+        showToast('Ошибка загрузки карты');
+    });
+}
+
+// Временный маркер для визуализации выбранной точки
+function addTempMarker(lat, lng) {
+    // Удаляем предыдущий временный маркер, если есть
+    if (window.tempMarker) {
+        window.tempMarker.destroy();
+    }
+    
+    // Создаем новый временный маркер
+    const el = document.createElement('div');
+    el.innerHTML = `<div style="
+        width: 20px;
+        height: 20px;
+        background: #f4c430;
+        border: 3px solid white;
+        border-radius: 50%;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        animation: pulse 1.5s infinite;
+    "></div>`;
+    
+    // Добавляем стиль анимации, если его нет
+    if (!document.getElementById('temp-marker-style')) {
+        const style = document.createElement('style');
+        style.id = 'temp-marker-style';
+        style.textContent = `
+            @keyframes pulse {
+                0% { transform: scale(1); opacity: 1; }
+                50% { transform: scale(1.3); opacity: 0.8; }
+                100% { transform: scale(1); opacity: 1; }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+    
+    window.tempMarker = new mapgl.HtmlMarker(map, {
+        coordinates: [lng, lat],
+        html: el.innerHTML,
+        anchor: [0.5, 0.5]
     });
 }
 
@@ -274,6 +341,13 @@ function addMapMarker(problem) {
 
     marker.on('click', () => showProblemDetails(problem.id));
     markers2gis[problem.id] = marker;
+}
+
+function clearTempMarker() {
+    if (window.tempMarker) {
+        window.tempMarker.destroy();
+        window.tempMarker = null;
+    }
 }
 
 function removeMapMarker(id) {
@@ -673,16 +747,46 @@ function setupUI() {
     });
 
     // Add marker button
-    document.getElementById('add-marker-btn').addEventListener('click', () => {
-        if (!currentUser) { showToast('⚠️ Сначала войдите в систему'); return; }
-        tempMarkerCoords = null;
-        document.getElementById('problem-desc').value = '';
-        document.getElementById('modal-coords').textContent = '📍 Нажмите на карту, чтобы выбрать место';
-        document.getElementById('photo-preview').classList.add('hidden');
-        document.getElementById('photo-label-text').textContent = '📷 Выбрать фото';
-        document.getElementById('modal-problem').classList.remove('hidden');
-        showToast('📍 Нажмите на карту, чтобы выбрать место проблемы');
+document.getElementById('add-marker-btn').addEventListener('click', () => {
+    if (!currentUser) { 
+        showToast('⚠️ Сначала войдите в систему'); 
+        return; 
+    }
+    
+    // Очищаем предыдущие данные
+    tempMarkerCoords = null;
+    clearTempMarker();
+    
+    // Очищаем форму
+    document.getElementById('problem-desc').value = '';
+    document.getElementById('modal-coords').textContent = '📍 Нажмите на карту, чтобы выбрать место';
+    document.getElementById('modal-coords').style.color = '';
+    document.getElementById('modal-coords').style.fontWeight = '';
+    document.getElementById('photo-preview').classList.add('hidden');
+    document.getElementById('photo-label-text').textContent = '📷 Выбрать фото';
+    
+    // Сбрасываем выбранный тип проблемы (опционально)
+    document.querySelectorAll('.type-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.type === 'trash') {
+            btn.classList.add('active');
+        }
     });
+    selectedProblemType = 'trash';
+    
+    // Показываем модальное окно
+    document.getElementById('modal-problem').classList.remove('hidden');
+    
+    // Показываем подсказку
+    showToast('📍 Теперь нажмите на карту, чтобы выбрать место проблемы');
+    
+    // Небольшая задержка, чтобы карта успела перехватить событие
+    setTimeout(() => {
+        // Убеждаемся, что модальное окно открыто и карта готова к приему кликов
+        console.log('Карта готова к выбору места');
+    }, 100);
+});
+
 
     // My location
     document.getElementById('my-location-btn').addEventListener('click', () => {
@@ -804,6 +908,12 @@ function closeSidebar() {
 // ══════════════════════════════════════════════════════════
 function closeModal(id) {
     document.getElementById(id)?.classList.add('hidden');
+    
+    // Если закрываем модальное окно проблемы, очищаем временный маркер
+    if (id === 'modal-problem') {
+        clearTempMarker();
+        tempMarkerCoords = null;
+    }
 }
 
 function showToast(msg, duration = 3000) {
