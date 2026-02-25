@@ -235,33 +235,14 @@ function initMap() {
         lang: 'ru'
     });
 
-    // Добавляем обработчик клика с правильной проверкой
+    // Клик по карте — работает только в режиме выбора точки (pick mode)
     map.on('click', function(e) {
-        // Проверяем, открыто ли модальное окно добавления проблемы
-        const modalProblem = document.getElementById('modal-problem');
-        if (!modalProblem || modalProblem.classList.contains('hidden')) {
-            return; // Если модальное окно закрыто, игнорируем клик
-        }
-        
-        // Получаем координаты клика
+        if (!window._pickMode) return;
         const [lng, lat] = e.lngLat;
-        
-        // Сохраняем координаты
         tempMarkerCoords = { lat, lng };
-        
-        // Показываем координаты в модальном окне
-        const coordsElement = document.getElementById('modal-coords');
-        if (coordsElement) {
-            coordsElement.textContent = `📍 ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-            coordsElement.style.color = 'var(--green)';
-            coordsElement.style.fontWeight = '600';
-        }
-        
-        // Показываем уведомление
-        showToast('✅ Координаты выбраны! Теперь заполните описание');
-        
-        // Добавляем временный маркер для визуализации
         addTempMarker(lat, lng);
+        exitPickMode();
+        openAddProblemModal();
     });
     
     // Добавляем обработчик ошибок карты
@@ -348,6 +329,68 @@ function clearTempMarker() {
         window.tempMarker.destroy();
         window.tempMarker = null;
     }
+}
+
+// ── PICK MODE — режим выбора точки на карте ───────────────
+function enterPickMode() {
+    window._pickMode = true;
+    tempMarkerCoords = null;
+    clearTempMarker();
+
+    let hint = document.getElementById('pick-hint');
+    if (!hint) {
+        hint = document.createElement('div');
+        hint.id = 'pick-hint';
+        hint.innerHTML = `
+            <div class="pick-hint-inner">
+                <div class="pick-hint-icon">📍</div>
+                <div class="pick-hint-text">Нажмите на карту,<br>чтобы выбрать место проблемы</div>
+                <button class="pick-hint-cancel" id="pick-cancel-btn">Отмена</button>
+            </div>`;
+        document.getElementById('map-container').appendChild(hint);
+        document.getElementById('pick-cancel-btn').addEventListener('click', () => {
+            exitPickMode();
+        });
+    }
+    hint.classList.remove('pick-hint-hidden');
+    hint.classList.add('pick-hint-visible');
+
+    const mapEl = document.getElementById('map');
+    if (mapEl) mapEl.style.cursor = 'crosshair';
+}
+
+function exitPickMode() {
+    window._pickMode = false;
+    const hint = document.getElementById('pick-hint');
+    if (hint) {
+        hint.classList.remove('pick-hint-visible');
+        hint.classList.add('pick-hint-hidden');
+    }
+    const mapEl = document.getElementById('map');
+    if (mapEl) mapEl.style.cursor = '';
+}
+
+function openAddProblemModal() {
+    document.getElementById('problem-desc').value = '';
+    document.getElementById('photo-preview').classList.add('hidden');
+    document.getElementById('photo-label-text').textContent = '📷 Выбрать фото';
+    document.querySelectorAll('.type-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.type === 'trash');
+    });
+    document.querySelectorAll('.urgency-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.urgency === 'medium');
+    });
+    selectedProblemType = 'trash';
+    selectedUrgency = 'medium';
+
+    const coordsEl = document.getElementById('modal-coords');
+    if (tempMarkerCoords) {
+        coordsEl.textContent = `📍 ${tempMarkerCoords.lat.toFixed(5)}, ${tempMarkerCoords.lng.toFixed(5)}`;
+        coordsEl.style.color = 'var(--green)';
+        coordsEl.style.fontWeight = '600';
+    }
+
+    document.getElementById('modal-problem').classList.remove('hidden');
 }
 
 function removeMapMarker(id) {
@@ -746,46 +789,11 @@ function setupUI() {
         });
     });
 
-    // Add marker button
-document.getElementById('add-marker-btn').addEventListener('click', () => {
-    if (!currentUser) { 
-        showToast('⚠️ Сначала войдите в систему'); 
-        return; 
-    }
-    
-    // Очищаем предыдущие данные
-    tempMarkerCoords = null;
-    clearTempMarker();
-    
-    // Очищаем форму
-    document.getElementById('problem-desc').value = '';
-    document.getElementById('modal-coords').textContent = '📍 Нажмите на карту, чтобы выбрать место';
-    document.getElementById('modal-coords').style.color = '';
-    document.getElementById('modal-coords').style.fontWeight = '';
-    document.getElementById('photo-preview').classList.add('hidden');
-    document.getElementById('photo-label-text').textContent = '📷 Выбрать фото';
-    
-    // Сбрасываем выбранный тип проблемы (опционально)
-    document.querySelectorAll('.type-btn').forEach(btn => {
-        btn.classList.remove('active');
-        if (btn.dataset.type === 'trash') {
-            btn.classList.add('active');
-        }
+    // Add marker button — запускает режим выбора точки на карте
+    document.getElementById('add-marker-btn').addEventListener('click', () => {
+        if (!currentUser) { showToast('⚠️ Сначала войдите в систему'); return; }
+        enterPickMode();
     });
-    selectedProblemType = 'trash';
-    
-    // Показываем модальное окно
-    document.getElementById('modal-problem').classList.remove('hidden');
-    
-    // Показываем подсказку
-    showToast('📍 Теперь нажмите на карту, чтобы выбрать место проблемы');
-    
-    // Небольшая задержка, чтобы карта успела перехватить событие
-    setTimeout(() => {
-        // Убеждаемся, что модальное окно открыто и карта готова к приему кликов
-        console.log('Карта готова к выбору места');
-    }, 100);
-});
 
 
     // My location
@@ -908,11 +916,10 @@ function closeSidebar() {
 // ══════════════════════════════════════════════════════════
 function closeModal(id) {
     document.getElementById(id)?.classList.add('hidden');
-    
-    // Если закрываем модальное окно проблемы, очищаем временный маркер
     if (id === 'modal-problem') {
         clearTempMarker();
         tempMarkerCoords = null;
+        exitPickMode();
     }
 }
 
