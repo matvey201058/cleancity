@@ -236,19 +236,33 @@ function initMap() {
     });
 
     // Добавляем обработчик клика с правильной проверкой
-    // Клик по карте — только в ручном pick mode
     map.on('click', function(e) {
-        if (!window._pickMode) return;
-        window._pickMode = false;
-        document.getElementById('map').style.cursor = '';
-
+        // Проверяем, открыто ли модальное окно добавления проблемы
+        const modalProblem = document.getElementById('modal-problem');
+        if (!modalProblem || modalProblem.classList.contains('hidden')) {
+            return; // Если модальное окно закрыто, игнорируем клик
+        }
+        
+        // Получаем координаты клика
         const [lng, lat] = e.lngLat;
+        
+        // Сохраняем координаты
         tempMarkerCoords = { lat, lng };
+        
+        // Показываем координаты в модальном окне
+        const coordsElement = document.getElementById('modal-coords');
+        if (coordsElement) {
+            coordsElement.textContent = `📍 ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+            coordsElement.style.color = 'var(--green)';
+            coordsElement.style.fontWeight = '600';
+        }
+        
+        // Показываем уведомление
+        showToast('✅ Координаты выбраны! Теперь заполните описание');
+        
+        // Добавляем временный маркер для визуализации
         addTempMarker(lat, lng);
-
-        // Возвращаем форму с обновлёнными координатами
-        openAddProblemModal(false);
-    });;
+    });
     
     // Добавляем обработчик ошибок карты
     map.on('error', function(e) {
@@ -336,87 +350,6 @@ function clearTempMarker() {
     }
 }
 
-// ── ДОБАВЛЕНИЕ МЕТКИ ПО ГЕОЛОКАЦИИ ─────────────────────────
-function addMarkerByGeolocation() {
-    clearTempMarker();
-    tempMarkerCoords = null;
-
-    if (!navigator.geolocation) {
-        // Геолокация не поддерживается — открываем форму без координат и предлагаем ввести вручную
-        openAddProblemModal(true);
-        return;
-    }
-
-    // Показываем индикатор загрузки на кнопке
-    const btn = document.getElementById('add-marker-btn');
-    const origHTML = btn.innerHTML;
-    btn.innerHTML = '<span class="geo-spinner"></span><span class="fab-label">Определяю место...</span>';
-    btn.disabled = true;
-
-    navigator.geolocation.getCurrentPosition(
-        (pos) => {
-            btn.innerHTML = origHTML;
-            btn.disabled = false;
-
-            const lat = pos.coords.latitude;
-            const lng = pos.coords.longitude;
-            tempMarkerCoords = { lat, lng };
-
-            // Центрируем карту на пользователе и ставим временный маркер
-            if (map) map.setCenter([lng, lat], { duration: 600, zoom: 16 });
-            addTempMarker(lat, lng);
-            openAddProblemModal(false);
-        },
-        (err) => {
-            btn.innerHTML = origHTML;
-            btn.disabled = false;
-
-            // Геолокация отклонена или недоступна — открываем форму, предлагаем выбрать вручную
-            showToast('📍 Геолокация недоступна — выберите место на карте вручную');
-            openAddProblemModal(true);
-        },
-        { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
-    );
-}
-
-function openAddProblemModal(manualMode = false) {
-    // Сбрасываем форму
-    document.getElementById('problem-desc').value = '';
-    document.getElementById('photo-preview').classList.add('hidden');
-    document.getElementById('photo-label-text').textContent = '📷 Выбрать фото';
-    document.querySelectorAll('.type-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.type === 'trash');
-    });
-    document.querySelectorAll('.urgency-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.urgency === 'medium');
-    });
-    selectedProblemType = 'trash';
-    selectedUrgency = 'medium';
-
-    // Показываем координаты или инструкцию
-    const coordsEl = document.getElementById('modal-coords');
-    if (tempMarkerCoords && !manualMode) {
-        coordsEl.innerHTML = `<span style="color:var(--green);font-weight:600">✅ Место определено: ${tempMarkerCoords.lat.toFixed(5)}, ${tempMarkerCoords.lng.toFixed(5)}</span>`;
-    } else {
-        // В ручном режиме — показываем кнопку "выбрать на карте"
-        coordsEl.innerHTML = `
-            <span id="manual-coords-status" style="color:var(--text-muted)">📍 Место не определено</span>
-            <button class="btn-pick-manual" id="pick-manual-btn" onclick="startManualPick()">🗺️ Выбрать на карте</button>
-        `;
-    }
-
-    document.getElementById('modal-problem').classList.remove('hidden');
-}
-
-// Ручной выбор точки: закрываем форму, активируем клик по карте
-window._pickMode = false;
-function startManualPick() {
-    document.getElementById('modal-problem').classList.add('hidden');
-    window._pickMode = true;
-    showToast('📍 Нажмите на карту, чтобы выбрать место');
-    if (map) document.getElementById('map').style.cursor = 'crosshair';
-}
-
 function removeMapMarker(id) {
     if (markers2gis[id]) {
         markers2gis[id].destroy();
@@ -463,7 +396,7 @@ async function saveProblem() {
         let photoData = null;
         const photoInput = document.getElementById('problem-photo');
         if (photoInput.files[0]) {
-            photoData = await fileToBase64(photoInput.files[0]);
+            photoData = await compressImage(photoInput.files[0], 800, 0.75);
         }
 
         const points = URGENCY_POINTS[selectedUrgency] || 10;
@@ -813,11 +746,46 @@ function setupUI() {
         });
     });
 
-        // Add marker button — получает геолокацию и сразу открывает форму
-    document.getElementById('add-marker-btn').addEventListener('click', () => {
-        if (!currentUser) { showToast('⚠️ Сначала войдите в систему'); return; }
-        addMarkerByGeolocation();
+    // Add marker button
+document.getElementById('add-marker-btn').addEventListener('click', () => {
+    if (!currentUser) { 
+        showToast('⚠️ Сначала войдите в систему'); 
+        return; 
+    }
+    
+    // Очищаем предыдущие данные
+    tempMarkerCoords = null;
+    clearTempMarker();
+    
+    // Очищаем форму
+    document.getElementById('problem-desc').value = '';
+    document.getElementById('modal-coords').textContent = '📍 Нажмите на карту, чтобы выбрать место';
+    document.getElementById('modal-coords').style.color = '';
+    document.getElementById('modal-coords').style.fontWeight = '';
+    document.getElementById('photo-preview').classList.add('hidden');
+    document.getElementById('photo-label-text').textContent = '📷 Выбрать фото';
+    
+    // Сбрасываем выбранный тип проблемы (опционально)
+    document.querySelectorAll('.type-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.type === 'trash') {
+            btn.classList.add('active');
+        }
     });
+    selectedProblemType = 'trash';
+    
+    // Показываем модальное окно
+    document.getElementById('modal-problem').classList.remove('hidden');
+    
+    // Показываем подсказку
+    showToast('📍 Теперь нажмите на карту, чтобы выбрать место проблемы');
+    
+    // Небольшая задержка, чтобы карта успела перехватить событие
+    setTimeout(() => {
+        // Убеждаемся, что модальное окно открыто и карта готова к приему кликов
+        console.log('Карта готова к выбору места');
+    }, 100);
+});
 
 
     // My location
@@ -850,17 +818,21 @@ function setupUI() {
     });
 
     // Photo preview
-    document.getElementById('problem-photo').addEventListener('change', e => {
+    document.getElementById('problem-photo').addEventListener('change', async e => {
         const file = e.target.files[0];
         if (!file) return;
-        const reader = new FileReader();
-        reader.onload = ev => {
+        document.getElementById('photo-label-text').textContent = '⏳ Сжимаю фото...';
+        try {
+            const compressed = await compressImage(file, 800, 0.75);
+            // Размер сжатого base64 в КБ (base64 ~= 4/3 от бинарного)
+            const kb = Math.round(compressed.length * 0.75 / 1024);
             const img = document.getElementById('photo-preview');
-            img.src = ev.target.result;
+            img.src = compressed;
             img.classList.remove('hidden');
-            document.getElementById('photo-label-text').textContent = '✅ ' + file.name;
-        };
-        reader.readAsDataURL(file);
+            document.getElementById('photo-label-text').textContent = `✅ Готово (${kb} КБ)`;
+        } catch {
+            document.getElementById('photo-label-text').textContent = '❌ Ошибка — попробуйте другое фото';
+        }
     });
 
     // Map filter chips
@@ -961,13 +933,39 @@ function escapeHtml(str) {
     return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-async function fileToBase64(file) {
-    return new Promise((res, rej) => {
+// Сжимает фото до ~800px и качества 0.75 → типичный результат < 100 КБ
+async function compressImage(file, maxSize = 800, quality = 0.75) {
+    return new Promise((resolve, reject) => {
         const reader = new FileReader();
-        reader.onload = e => res(e.target.result);
-        reader.onerror = rej;
+        reader.onerror = reject;
+        reader.onload = ev => {
+            const img = new Image();
+            img.onerror = reject;
+            img.onload = () => {
+                // Вычисляем новые размеры с сохранением пропорций
+                let { width, height } = img;
+                if (width > height) {
+                    if (width > maxSize) { height = Math.round(height * maxSize / width); width = maxSize; }
+                } else {
+                    if (height > maxSize) { width = Math.round(width * maxSize / height); height = maxSize; }
+                }
+
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                resolve(canvas.toDataURL('image/jpeg', quality));
+            };
+            img.src = ev.target.result;
+        };
         reader.readAsDataURL(file);
     });
+}
+
+// Оставляем для обратной совместимости
+async function fileToBase64(file) {
+    return compressImage(file);
 }
 
 // Global functions for onclick handlers
@@ -978,4 +976,3 @@ window.panToMarker = panToMarker;
 window.joinEvent = joinEvent;
 window.showArticle = showArticle;
 window.switchTab = switchTab;
-window.startManualPick = startManualPick;
