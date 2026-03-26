@@ -231,7 +231,7 @@ function initMap() {
     map = new mapgl.Map('map', {
         center: [47.8864, 56.6344], // Йошкар-Ола
         zoom: 13,
-        key: '94eeaf1e-53b8-429d-9cc2-a6c4fd844057',
+        key: 'a87f7f24-b0c8-4208-86dc-906018f1c0aa',
         lang: 'ru'
     });
 
